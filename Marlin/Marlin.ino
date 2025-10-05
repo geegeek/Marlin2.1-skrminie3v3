@@ -8,6 +8,7 @@
 
 ================================================================================
 
+
 Greetings! Thank you for choosing Marlin 2 as your 3D printer firmware.
 
 To configure Marlin you must edit Configuration.h and Configuration_adv.h

@@ -85,11 +85,63 @@ Oltre ai punti elencati sopra, in `Configuration_adv.h` sono stati attivati:
 
 ## Come replicare/aggiornare la configurazione
 
-1. **Partire dai file di configurazione**: copiare `Configuration.h` e `Configuration_adv.h` in un nuovo sorgente Marlin e verificare prima i blocchi relativi a scheda, driver, sonde e volume di stampa.
-2. **Ricontrollare gli offset del BLTouch** dopo eventuali modifiche meccaniche (carrelli, staffe ecc.).
-3. **Ritarare PID ed e-step** se cambiano hotend, estrusore o termistori: i valori presenti sono specifici per Micro Swiss NG e termistori Creality.
-4. **Rivalutare Linear Advance**: il valore K a 0.0 è un segnaposto; dopo la calibrazione aggiornare `ADVANCE_K` e salvare in EEPROM.
-5. **Testare il cambio filamento** se si variano lunghezze Bowden/Direct Drive, adattando le distanze di carico/scarico nel blocco `ADVANCED_PAUSE_FEATURE`.
+Per ricreare la mia configurazione partendo da un Marlin “vanilla”, procedi nell’ordine seguente:
+
+### 1. Identità della stampante e comunicazione (`Configuration.h`)
+- Imposta la scheda madre con `#define MOTHERBOARD BOARD_BTT_SKR_MINI_E3_V3_0`.
+- Abilita la doppia seriale impostando `#define SERIAL_PORT 2` e `#define SERIAL_PORT_2 -1` con `#define BAUDRATE 115200`.
+- Personalizza il nome macchina con `#define CUSTOM_MACHINE_NAME "Ender-3 Pro"`.
+
+### 2. Geometria, motori e cinematiche (`Configuration.h`)
+- Imposta il volume di lavoro a 235×235×250 mm (`X_BED_SIZE`, `Y_BED_SIZE`, `Z_MAX_POS`).
+- Definisci gli endstop meccanici agli angoli minimi con stato alto (`#define X_MIN_ENDSTOP_HIT_STATE HIGH`, `#define Y_MIN_ENDSTOP_HIT_STATE HIGH`, `#define Z_MIN_PROBE_ENDSTOP_HIT_STATE HIGH`) e abilita entrambi i software endstop (`#define MIN_SOFTWARE_ENDSTOPS`, `#define MAX_SOFTWARE_ENDSTOPS`).
+- Inverti il verso dei motori X/Y/E con `#define INVERT_X_DIR true`, `#define INVERT_Y_DIR true`, `#define INVERT_E0_DIR true` mentre Z resta `false`.
+- Imposta i passi/mm con `#define DEFAULT_AXIS_STEPS_PER_UNIT   { 80, 80, 400, 400 }` e le velocità massime `{ 500, 500, 5, 25 }` (`DEFAULT_MAX_FEEDRATE`).
+- Configura accelerazioni massime `{ 500, 500, 100, 5000 }` (`DEFAULT_MAX_ACCELERATION`) e operative (`DEFAULT_ACCELERATION`, `DEFAULT_RETRACT_ACCELERATION`, `DEFAULT_TRAVEL_ACCELERATION`).
+- Abilita `JUNCTION_DEVIATION_MM 0.08` e `#define S_CURVE_ACCELERATION`.
+
+### 3. Sonda BLTouch e livellamento (`Configuration.h`)
+- Attiva il BLTouch (`#define BLTOUCH`) e imposta l’offset `#define NOZZLE_TO_PROBE_OFFSET { -44, -9, 3.5 }`.
+- Abilita `#define USE_PROBE_FOR_Z_HOMING` e `#define Z_SAFE_HOMING` con centro piatto.
+- Definisci le altezze di sicurezza (`Z_CLEARANCE_DEPLOY_PROBE`, `Z_CLEARANCE_BETWEEN_PROBES`, `Z_CLEARANCE_MULTI_PROBE`) a 10/5/5 mm.
+- Imposta le velocità del probing (`#define XY_PROBE_FEEDRATE (133*60)`, `#define Z_PROBE_FEEDRATE_FAST (4*60)`, `#define Z_PROBE_FEEDRATE_SLOW (Z_PROBE_FEEDRATE_FAST / 2)`) e il margine con `#define PROBING_MARGIN 10`.
+- Abilita il bilinear mesh 5×5 (`#define AUTO_BED_LEVELING_BILINEAR`, `#define GRID_MAX_POINTS_X 5`) con estrapolazione (`#define EXTRAPOLATE_BEYOND_GRID`), fade a 10 mm (`#define DEFAULT_LEVELING_FADE_HEIGHT 10.0`) e segmentazione dei movimenti (`#define SEGMENT_LEVELED_MOVES`, `#define LEVELED_SEGMENT_LENGTH 5.0`).
+
+### 4. Termica e gestione ventole (`Configuration.h`)
+- Usa termistori tipo 1 per hotend e piano (`TEMP_SENSOR_0` e `TEMP_SENSOR_BED`).
+- Inserisci i PID già calibrati (`DEFAULT_Kp 21.73`, `DEFAULT_Ki 1.54`, `DEFAULT_Kd 76.55` per l’hotend e `DEFAULT_bedKp 50.71`, `DEFAULT_bedKi 9.88`, `DEFAULT_bedKd 173.43`).
+- Configura i preset di preriscaldamento (`PREHEAT_1` PLA 185/45/255 e `PREHEAT_2` ABS 240/110/255).
+- Imposta la ventola di raffreddamento partendo dal firmware (vedi dettagli in `Configuration_adv.h`).
+
+### 5. EEPROM, sicurezza e qualità di vita (`Configuration.h`)
+- Abilita la memoria non volatile (`#define EEPROM_SETTINGS` e `#define EEPROM_AUTO_INIT`) e i messaggi verbosi (`#define EEPROM_CHITCHAT`).
+- Imposta il keepalive dell'host con `#define HOST_KEEPALIVE_FEATURE` e intervallo `#define DEFAULT_KEEPALIVE_INTERVAL 2`.
+- Seleziona il display grafico Creality con `#define CR10_STOCKDISPLAY` e abilita i menu di livellamento (`#define LCD_BED_LEVELING` e `#define LCD_BED_TRAMMING`).
+
+### 6. Cambio filamento e runout (`Configuration_adv.h` e `Configuration.h`)
+- In `Configuration_adv.h` abilita `#define ADVANCED_PAUSE_FEATURE` e imposta i parametri su misura del Micro Swiss NG:
+  - `#define PAUSE_PARK_RETRACT_LENGTH 2`
+  - `#define FILAMENT_CHANGE_UNLOAD_LENGTH 40`
+  - `#define FILAMENT_CHANGE_FAST_LOAD_FEEDRATE 6`
+  - `#define FILAMENT_CHANGE_FAST_LOAD_LENGTH 60`
+  - `#define ADVANCED_PAUSE_PURGE_LENGTH 50`
+  - `#define FILAMENT_UNLOAD_PURGE_RETRACT 13`, `#define FILAMENT_UNLOAD_PURGE_DELAY 5000`, `#define FILAMENT_UNLOAD_PURGE_LENGTH 8`
+  - Mantieni `#define PARK_HEAD_ON_PAUSE`, `#define HOME_BEFORE_FILAMENT_CHANGE`, `#define FILAMENT_LOAD_UNLOAD_GCODES`, `#define CONFIGURE_FILAMENT_CHANGE` e `#define PAUSE_PARK_NO_STEPPER_TIMEOUT`.
+- In `Configuration.h` lascia pronto lo script `#define FILAMENT_RUNOUT_SCRIPT "M600"` (il sensore è facoltativo ma la routine è già predisposta).
+
+### 7. Driver TMC2209 (`Configuration.h` e `Configuration_adv.h`)
+- Seleziona i driver TMC2209 (`#define X_DRIVER_TYPE  TMC2209` ecc.) e imposta le correnti RMS a 580 mA (X/Y/Z) e 650 mA (E0) tramite `#define X_CURRENT`, `#define Y_CURRENT`, `#define Z_CURRENT`, `#define E0_CURRENT`.
+- Mantieni `#define HOLD_MULTIPLIER 0.5` e `#define INTERPOLATE true` con microstepping a 1/16 e `RSENSE 0.11` su tutti gli assi.
+- Abilita StealthChop (`#define STEALTHCHOP_XY`, `#define STEALTHCHOP_Z`, `#define STEALTHCHOP_E`) e lascia il chopper default 24 V (`#define CHOPPER_TIMING CHOPPER_DEFAULT_24V`).
+- Riduci la corrente in homing con `#define X_CURRENT_HOME (X_CURRENT/2)`, `#define Y_CURRENT_HOME (Y_CURRENT/2)` e `#define Z_CURRENT_HOME (Z_CURRENT/2)`.
+
+### 8. Funzioni avanzate e interfaccia (`Configuration_adv.h`)
+- Abilita il wizard LCD per la sonda con `#define PROBE_OFFSET_WIZARD`.
+- Configura il babystepping evoluto con `#define DOUBLECLICK_FOR_Z_BABYSTEPPING`, `#define DOUBLECLICK_MAX_INTERVAL 1250` e `#define BABYSTEP_ZPROBE_OFFSET`, lasciando commentato `#define BABYSTEP_DISPLAY_TOTAL`.
+- Attiva il watchdog hardware con `#define USE_WATCHDOG` e il parser di emergenza con `#define EMERGENCY_PARSER`.
+- Imposta la ventola estrusore automatica (`#define E0_AUTO_FAN_PIN FAN1_PIN`, `#define EXTRUDER_AUTO_FAN_TEMPERATURE 50`, `#define EXTRUDER_AUTO_FAN_SPEED 255`).
+- Abilita il Linear Advance (`#define LIN_ADVANCE` e `#define ADVANCE_K 0.0`) e il supporto agli archi G2/G3 (`#define ARC_SUPPORT`).
+- Abilita la reportistica automatica verso l'host (`#define AUTO_REPORT_SD_STATUS`, `#define AUTO_REPORT_TEMPERATURES`, `#define AUTO_REPORT_POSITION`) e i prompt (`#define HOST_ACTION_COMMANDS`, `#define HOST_PROMPT_SUPPORT`).
 
 ## Risorse ufficiali Marlin
 

@@ -1,148 +1,101 @@
 <p align="center"><img src="buildroot/share/pixmaps/logo/marlin-outrun-nf-500.png" height="250" alt="MarlinFirmware's logo" /></p>
 
-<h1 align="center">Marlin 3D Printer Firmware</h1>
+# Firmware Marlin personalizzato per Ender 3 V2 (SKR Mini E3 V3 + Micro Swiss NG + BLTouch)
 
-<p align="center">
-    <a href="/LICENSE"><img alt="GPL-V3.0 License" src="https://img.shields.io/github/license/marlinfirmware/marlin.svg"></a>
-    <a href="https://github.com/MarlinFirmware/Marlin/graphs/contributors"><img alt="Contributors" src="https://img.shields.io/github/contributors/marlinfirmware/marlin.svg"></a>
-    <a href="https://github.com/MarlinFirmware/Marlin/releases"><img alt="Last Release Date" src="https://img.shields.io/github/release-date/MarlinFirmware/Marlin"></a>
-    <a href="https://github.com/MarlinFirmware/Marlin/actions/workflows/ci-build-tests.yml"><img alt="CI Status" src="https://github.com/MarlinFirmware/Marlin/actions/workflows/ci-build-tests.yml/badge.svg"></a>
-    <a href="https://github.com/sponsors/thinkyhead"><img alt="GitHub Sponsors" src="https://img.shields.io/github/sponsors/thinkyhead?color=db61a2"></a>
-    <br />
-    <a href="https://bsky.app/profile/marlinfw.org"><img alt="Follow marlinfw.org on Bluesky" src="https://img.shields.io/static/v1?label=&message=Follow @marlinfw.org&color=1185FE&logo=bluesky&logoColor=white"></a>
-    <a href="https://fosstodon.org/@marlinfirmware"><img alt="Follow MarlinFirmware on Mastodon" src="https://img.shields.io/mastodon/follow/109450200866020466?domain=https%3A%2F%2Ffosstodon.org&logoColor=%2300B&style=social"></a>
-</p>
+Questo repository contiene la mia configurazione di Marlin 2.1 pensata per una Creality Ender 3 V2 aggiornata con scheda madre BTT SKR Mini E3 V3.0, estrusore Micro Swiss NG Direct Drive, sensore BLTouch 3.1 e driver TMC2209. Il README è una memoria storica delle modifiche applicate rispetto ai valori di default di Marlin così da poterle replicare velocemente in caso di upgrade futuri.
 
-Additional documentation can be found at the [Marlin Home Page](//marlinfw.org/).
-Please test this firmware and let us know if it misbehaves in any way. Volunteers are standing by!
+## Panoramica hardware
 
-## Marlin 2.1 Bugfix Branch
+| Componente | Dettagli configurati in Marlin |
+|------------|--------------------------------|
+| Scheda madre | `BOARD_BTT_SKR_MINI_E3_V3_0` con porta seriale principale 2 a 115200 baud e porta secondaria USB (`-1`). |
+| Cinematica | Volume utile 235×235×250 mm, endstop agli angoli minimi, direzione motori X/Y invertita, Z e asse estrusore diretti. |
+| Estrusione | Un solo estrusore diretto Micro Swiss NG con e-step fissati a 400 step/mm. |
+| Sensori | BLTouch 3.1 fissato a sinistra dell'ugello (offset -44 mm in X, -9 mm in Y, +3.5 mm in Z). |
+| Interfaccia utente | Display Creality/CR-10 a 128×64 e voce macchina impostata su "Ender-3 Pro". |
+| Driver | TMC2209 su tutti gli assi con corrente 580 mA (650 mA su E0) e StealthChop attivo. |
 
-__Not for production use. Use with caution!__
+## Configurazione principale (`Configuration.h`)
 
-Marlin 2.1 continues to support both 32-bit ARM and 8-bit AVR boards while adding support for up to 9 coordinated axes and to up to 8 extruders.
+### Comunicazione e identificazione
+- `SERIAL_PORT` 2 per la porta UART integrata sulla SKR Mini e `SERIAL_PORT_2` a `-1` per l'USB virtuale.
+- Baud rate fisso a 115200.
+- Nome macchina mostrato sul display: `Ender-3 Pro`.
 
-This branch is for patches to the latest 2.1.x release version. Periodically this branch will form the basis for the next minor 2.1.x release.
+### Geometria e movimento
+- Volume dichiarato: 235 mm per X e Y, 250 mm per Z, con software endstop minimi attivi (Z esclusa) e massimi attivati.
+- Direzione motori: X e Y invertiti (`true`), Z normale (`false`), estrusore diretto invertito (`true`).
+- Passi per mm: `{80, 80, 400, 400}` (nota: 400 step/mm per E0 tarato sul Micro Swiss NG).
+- Velocità massime: `{500, 500, 5, 25}` mm/s per X/Y/Z/E.
+- Accelerazioni massime: `{500, 500, 100, 5000}` con accelerazioni operative 500 mm/s² (stampa e travel) e 100 mm/s² in retrazione.
+- Dinamica avanzata: Junction Deviation a 0.08 mm con gestione dei segmenti corti abilitata e accelerazione S-Curve attiva.
 
-Download earlier versions of Marlin on the [Releases page](//github.com/MarlinFirmware/Marlin/releases).
+### Homing, probing e livellamento
+- Utilizzo obbligatorio della sonda per l'homing Z e funzione Z Safe Homing al centro del piatto.
+- BLTouch abilitato con margine di probing di 10 mm e velocità di spostamento 133 mm/s tra i punti.
+- Offset sonda/nozzle `{-44, -9, 3.5}` mm.
+- Altezze di sicurezza: 10 mm per deploy, 5 mm tra i punti e per il multi probing.
+- Probing rapido a 4 mm/min, seconda passata a metà velocità, profondità minima -2 mm.
+- Livellamento automatico bilineare 5×5, con estrapolazione oltre la griglia e fade-out fino a 10 mm; movimenti suddivisi in segmenti da 5 mm.
 
-## Example Configurations
+### Termica e gestione temperature
+- Termistori tipo 1 su hotend e piano.
+- PID attivo per hotend (`Kp 21.73 / Ki 1.54 / Kd 76.55`) e piano (`Kp 50.71 / Ki 9.88 / Kd 173.43`).
+- Preheat rapidi: profilo PLA 185 °C / 45 °C / ventola 255 e ABS 240 °C / 110 °C / ventola 255.
+- Ventola estrusore collegata al pin FAN1 con attivazione automatica sopra i 50 °C.
 
-Before you can build Marlin for your machine you'll need a configuration for your specific hardware. Upon request, your vendor will be happy to provide you with the complete source code and configurations for your machine, but you'll need to get updated configuration files if you want to install a newer version of Marlin. Fortunately, Marlin users have contributed dozens of tested configurations to get you started. Visit the [MarlinFirmware/Configurations](//github.com/MarlinFirmware/Configurations) repository to find the right configuration for your hardware.
+### Memoria non volatile e sicurezza
+- EEPROM attiva con inizializzazione automatica e messaggi `M500/M501` verbosi.
+- Keepalive host ogni 2 secondi e watchdog attivato.
+- Funzione `EMERGENCY_PARSER` per comandi critici immediati.
 
-## Building Marlin 2.1
+### Qualità di vita e interfaccia
+- Menu LCD `CR10_STOCKDISPLAY` con wizard per l'offset della sonda, info menu e babystepping.
+- Babystepping su Z con doppio click rapido (1250 ms) e combinazione con M851 per salvare l'offset.
+- Linear Advance abilitato (K attuale 0.0 da calibrare in base al materiale).
+- Supporto alle archi G2/G3 e movimenti manuali con beep feedback.
 
-To build and upload Marlin you will use one of these tools:
+### Pause, cambio filamento e runout
+- Funzione `ADVANCED_PAUSE_FEATURE` con ritrazioni corte (2 mm), unload da 40 mm e load veloce 60 mm, purge finale 50 mm, mantenendo motori attivi e parcheggio automatico della testina.
+- G-code rapidi `M701/M702` e comando `M603` per configurare i cambi filamento.
+- Script runout di default `M600` (sensore disabilitato di default ma flusso già predisposto).
 
-- The free [Visual Studio Code](//code.visualstudio.com/download) using the [Auto Build Marlin](//marlinfw.org/docs/basics/auto_build_marlin.html) extension.
-- The free [Arduino IDE](//www.arduino.cc/en/main/software) : See [Building Marlin with Arduino](//marlinfw.org/docs/basics/install_arduino.html)
-- You can also use VSCode with devcontainer : See [Installing Marlin (VSCode devcontainer)](http://marlinfw.org/docs/basics/install_devcontainer_vscode.html).
+### Driver stepper (TMC2209)
+- Corrente RMS 580 mA su X/Y/Z (ridotta a metà in homing) e 650 mA su E0, microstepping 1/16.
+- StealthChop abilitato su tutti gli assi e timing chopper `CHOPPER_DEFAULT_24V`.
 
-Marlin is optimized to build with the **PlatformIO IDE** extension for **Visual Studio Code**. You can still build Marlin with **Arduino IDE**, and we hope to improve the Arduino build experience, but at this time PlatformIO is the better choice.
+### Report e integrazione host
+- Auto report stato SD (`M27 S`) e temperature (`M155 S`) + posizione (`M154 S`).
+- Comandi host action/prompt abilitati con supporto `M76`.
+- Parser G-code esteso (`CAPABILITIES_REPORT`) con report ventola su cambio velocità.
 
-## 8-Bit AVR Boards
+## Configurazione avanzata (`Configuration_adv.h`)
 
-We intend to continue supporting 8-bit AVR boards in perpetuity, maintaining a single codebase that can apply to all machines. We want casual hobbyists and tinkerers and owners of older machines to benefit from the community's innovations just as much as those with fancier machines. Plus, those old AVR-based machines are often the best for your testing and feedback!
+Oltre ai punti elencati sopra, in `Configuration_adv.h` sono stati attivati:
 
-## Hardware Abstraction Layer (HAL)
+- Ventola hotend automatica su FAN1 e velocità massima (255).
+- Wizard LCD per calibrare l'offset della sonda (`PROBE_OFFSET_WIZARD`).
+- Watchdog hardware abilitato (`USE_WATCHDOG`).
+- Babystepping con doppio click, collegamento automatico all'offset della sonda e opzione di visualizzazione totale disabilitata per mantenere il menu pulito.
+- Linear Advance pronto all'uso (K da tarare).
+- Funzioni di pausa avanzate con parametri personalizzati per il Micro Swiss NG.
+- Supporto agli archi G2/G3 per percorsi più fluidi.
+- Corrente e modalità dei driver TMC come riportato in tabella hardware.
+- Auto-report SD/temperature/posizione e comandi host (pause, prompt) abilitati.
 
-Marlin includes an abstraction layer to provide a common API for all the platforms it targets. This allows Marlin code to address the details of motion and user interface tasks at the lowest and highest levels with no system overhead, tying all events directly to the hardware clock.
+## Come replicare/aggiornare la configurazione
 
-Every new HAL opens up a world of hardware. At this time we need HALs for RP2040 and the Duet3D family of boards. A HAL that wraps an RTOS is an interesting concept that could be explored. Did you know that Marlin includes a Simulator that can run on Windows, macOS, and Linux? Join the Discord to help move these sub-projects forward!
+1. **Partire dai file di configurazione**: copiare `Configuration.h` e `Configuration_adv.h` in un nuovo sorgente Marlin e verificare prima i blocchi relativi a scheda, driver, sonde e volume di stampa.
+2. **Ricontrollare gli offset del BLTouch** dopo eventuali modifiche meccaniche (carrelli, staffe ecc.).
+3. **Ritarare PID ed e-step** se cambiano hotend, estrusore o termistori: i valori presenti sono specifici per Micro Swiss NG e termistori Creality.
+4. **Rivalutare Linear Advance**: il valore K a 0.0 è un segnaposto; dopo la calibrazione aggiornare `ADVANCE_K` e salvare in EEPROM.
+5. **Testare il cambio filamento** se si variano lunghezze Bowden/Direct Drive, adattando le distanze di carico/scarico nel blocco `ADVANCED_PAUSE_FEATURE`.
 
-### Supported Platforms
+## Risorse ufficiali Marlin
 
-  Platform|MCU|Example Boards
-  --------|---|-------
-  [Arduino AVR](//www.arduino.cc/)|ATmega|RAMPS, Melzi, RAMBo
-  [Teensy++ 2.0](//www.microchip.com/en-us/product/AT90USB1286)|AT90USB1286|Printrboard
-  [Arduino Due](//www.arduino.cc/en/Guide/ArduinoDue)|SAM3X8E|RAMPS-FD, RADDS, RAMPS4DUE
-  [ESP32](//github.com/espressif/arduino-esp32)|ESP32|FYSETC E4, E4d@BOX, MRR
-  [HC32](//www.huazhoucn.com/)|HC32|Ender-2 Pro, Voxelab Aquila
-  [LPC1768](//www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/lpc1700-cortex-m3/512-kb-flash-64-kb-sram-ethernet-usb-lqfp100-package:LPC1768FBD100)|ARM® Cortex-M3|MKS SBASE, Re-ARM, Selena Compact
-  [LPC1769](//www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/lpc1700-cortex-m3/512-kb-flash-64-kb-sram-ethernet-usb-lqfp100-package:LPC1769FBD100)|ARM® Cortex-M3|Smoothieboard, Azteeg X5 mini, TH3D EZBoard
-  [STM32F103](//www.st.com/en/microcontrollers-microprocessors/stm32f103.html)|ARM® Cortex-M3|Malyan M200, GTM32 Pro, MKS Robin, BTT SKR Mini
-  [STM32F401](//www.st.com/en/microcontrollers-microprocessors/stm32f401.html)|ARM® Cortex-M4|ARMED, Rumba32, SKR Pro, Lerdge, FYSETC S6, Artillery Ruby
-  [Pico RP2040](//www.raspberrypi.com/documentation/microcontrollers/pico-series.html)|Dual Cortex M0+|BigTreeTech SKR Pico
-  [STM32F7x6](//www.st.com/en/microcontrollers-microprocessors/stm32f7x6.html)|ARM® Cortex-M7|The Borg, RemRam V1
-  [STM32G0B1RET6](//www.st.com/en/microcontrollers-microprocessors/stm32g0x1.html)|ARM® Cortex-M0+|BigTreeTech SKR mini E3 V3.0
-  [STM32H743xIT6](//www.st.com/en/microcontrollers-microprocessors/stm32h743-753.html)|ARM® Cortex-M7|BigTreeTech SKR V3.0, SKR EZ V3.0, SKR SE BX V2.0/V3.0
-  [SAMD21P20A](//www.adafruit.com/product/4064)|ARM® Cortex-M0+|Adafruit Grand Central M4
-  [SAMD51P20A](//www.adafruit.com/product/4064)|ARM® Cortex-M4|Adafruit Grand Central M4
-  [Teensy 3.2/3.1](//www.pjrc.com/teensy/teensy31.html)|MK20DX256VLH7 ARM® Cortex-M4|
-  [Teensy 3.5](//www.pjrc.com/store/teensy35.html)|MK64FX512-VMD12 ARM® Cortex-M4|
-  [Teensy 3.6](//www.pjrc.com/store/teensy36.html)|MK66FX1MB-VMD18 ARM® Cortex-M4|
-  [Teensy 4.0](//www.pjrc.com/store/teensy40.html)|MIMXRT1062-DVL6B ARM® Cortex-M7|
-  [Teensy 4.1](//www.pjrc.com/store/teensy41.html)|MIMXRT1062-DVJ6B ARM® Cortex-M7|
-  Linux Native|x86 / ARM / RISC-V|Raspberry Pi GPIO
-  Simulator|Windows, macOS, Linux|Desktop OS
-  [All supported boards](//marlinfw.org/docs/hardware/boards.html#boards-list)|All platforms|All boards
+- [Sito principale di Marlin](https://marlinfw.org) per documentazione e novità.
+- [Repository MarlinFirmware/Configurations](https://github.com/MarlinFirmware/Configurations) con profili di esempio.
+- [Guida Auto Build Marlin](https://marlinfw.org/docs/basics/auto_build_marlin.html) per compilare con Visual Studio Code.
+- Canali di supporto: [Discord ufficiale](https://discord.com/servers/marlin-firmware-461605380783472640) e [Issue tracker su GitHub](https://github.com/MarlinFirmware/Marlin/issues/new/choose).
 
-## Marlin Support
-
-The Issue Queue is reserved for Bug Reports and Feature Requests. Please use the following resources for help with configuration and troubleshooting:
-
-- [Marlin Documentation](//marlinfw.org) - Official Marlin documentation
-- [Marlin Discord](//discord.com/servers/marlin-firmware-461605380783472640) - Discuss issues with Marlin users and developers
-- Facebook Group ["Marlin Firmware"](//www.facebook.com/groups/1049718498464482/)
-- RepRap.org [Marlin Forum](//forums.reprap.org/list.php?415)
-- Facebook Group ["Marlin Firmware for 3D Printers"](//www.facebook.com/groups/3Dtechtalk/)
-- [Marlin Configuration](//www.youtube.com/results?search_query=marlin+configuration) on YouTube
-
-## Contributing Patches
-
-You can contribute patches by submitting a Pull Request to the ([bugfix-2.1.x](//github.com/MarlinFirmware/Marlin/tree/bugfix-2.1.x)) branch.
-
-- We use branches named with a "bugfix" or "dev" prefix to fix bugs and integrate new features.
-- Follow the [Coding Standards](//marlinfw.org/docs/development/coding_standards.html) to gain points with the maintainers.
-- Please submit Feature Requests and Bug Reports to the [Issue Queue](//github.com/MarlinFirmware/Marlin/issues/new/choose). See above for user support.
-- Whenever you add new features, be sure to add one or more build tests to `buildroot/tests`. Any tests added to a PR will be run within that PR on GitHub servers as soon as they are pushed. To minimize iteration be sure to run your new tests locally, if possible.
-  - Local build tests:
-    - All: `make tests-config-all-local`
-    - Single: `make tests-config-single-local TEST_TARGET=...`
-  - Local build tests in Docker:
-    - All: `make tests-config-all-local-docker`
-    - Single: `make tests-config-all-local-docker TEST_TARGET=...`
-  - To run all unit test suites:
-    - Using PIO: `platformio run -t test-marlin`
-    - Using Make: `make unit-test-all-local`
-    - Using Docker + make: `maker unit-test-all-local-docker`
-  - To run a single unit test suite:
-    - Using PIO: `platformio run -t marlin_<test-suite-name>`
-    - Using make: `make unit-test-single-local TEST_TARGET=<test-suite-name>`
-    - Using Docker + make: `maker unit-test-single-local-docker TEST_TARGET=<test-suite-name>`
-- If your feature can be unit tested, add one or more unit tests. For more information see our documentation on [Unit Tests](test).
-
-## Contributors
-
-Marlin is constantly improving thanks to a huge number of contributors from all over the world bringing their specialties and talents. Huge thanks are due to [all the contributors](//github.com/MarlinFirmware/Marlin/graphs/contributors) who regularly patch up bugs, help direct traffic, and basically keep Marlin from falling apart. Marlin's continued existence would not be possible without them.
-
-Marlin Firmware original logo design by Ahmet Cem TURAN [@ahmetcemturan](//github.com/ahmetcemturan).
-
-## Project Leadership
-
-Name|Role|Link|Donate
-----|----|----|----
-🇺🇸 Scott Lahteine|Project Lead|[[@thinkyhead](//github.com/thinkyhead)]|[💸 Donate](//marlinfw.org/docs/development/contributing.html#donate)
-🇺🇸 Roxanne Neufeld|Admin|[[@Roxy-3D](//github.com/Roxy-3D)]|
-🇺🇸 Keith Bennett|Admin|[[@thisiskeithb](//github.com/thisiskeithb)]|[💸 Donate](//github.com/sponsors/thisiskeithb)
-🇺🇸 Jason Smith|Admin|[[@sjasonsmith](//github.com/sjasonsmith)]|
-🇧🇷 Victor Oliveira|Admin|[[@rhapsodyv](//github.com/rhapsodyv)]|
-🇬🇧 Chris Pepper|Admin|[[@p3p](//github.com/p3p)]|
-🇳🇿 Peter Ellens|Admin|[[@ellensp](//github.com/ellensp)]|[💸 Donate](//ko-fi.com/ellensp)
-🇺🇸 Bob Kuhn|Admin|[[@Bob-the-Kuhn](//github.com/Bob-the-Kuhn)]|
-🇳🇱 Erik van der Zalm|Founder|[[@ErikZalm](//github.com/ErikZalm)]|
-
-## Star History
-
-<a id="starchart" href="https://star-history.com/#MarlinFirmware/Marlin&Date">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=MarlinFirmware/Marlin&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=MarlinFirmware/Marlin&type=Date" />
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=MarlinFirmware/Marlin&type=Date" />
-  </picture>
-</a>
-
-## License
-
-Marlin is published under the [GPL license](/LICENSE) because we believe in open development. The GPL comes with both rights and obligations. Whether you use Marlin firmware as the driver for your open or closed-source product, you must keep Marlin open, and you must provide your compatible Marlin source code to end users upon request. The most straightforward way to comply with the Marlin license is to make a fork of Marlin on Github, perform your modifications, and direct users to your modified fork.
+Questa sezione sostituisce il README generico di Marlin mantenendo solo i link più utili all'ecosistema ufficiale.

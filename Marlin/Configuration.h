@@ -927,8 +927,8 @@
  * Note: For Bowden Extruders make this large enough to allow load/unload.
  */
 #define PREVENT_LENGTHY_EXTRUDE
-#define EXTRUDE_MAXLENGTH 600
-
+#define EXTRUDE_MAXLENGTH 60
+//io ho il microswiss Micro Swiss NG DirectDrive for Creality CR-10/Ender 3
 //===========================================================================
 //======================== Thermal Runaway Protection =======================
 //===========================================================================
@@ -1300,7 +1300,9 @@
  * Override with M92 (when enabled below)
  *                                      X, Y, Z [, I [, J [, K...]]], E0 [, E1[, E2...]]
  */
-#define DEFAULT_AXIS_STEPS_PER_UNIT   { 80, 80, 400, 1000 }
+#define DEFAULT_AXIS_STEPS_PER_UNIT   { 80, 80, 400, 400 } 
+
+//E0=400 per il mio estrusore Micro Swiss NG DirectDrive for Creality CR-10/Ender 3
 
 /**
  * Enable support for M92. Disable to save at least ~530 bytes of flash.
@@ -1650,7 +1652,7 @@
  */
 //#define NOZZLE_TO_PROBE_OFFSET { 10, 10, 0 }
 //cambiato con valiri tipici della ender3
-#define NOZZLE_TO_PROBE_OFFSET { -44, 9, 2 }
+#define NOZZLE_TO_PROBE_OFFSET { -44, -9, 3.5 }
 
 // Enable and set to use a specific tool for probing. Disable to allow any tool.
 #define PROBING_TOOL 0
